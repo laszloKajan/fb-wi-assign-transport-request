@@ -1,0 +1,27 @@
+{
+    "name": "assign-transport-request",
+    "description": "Assign transport request to Focused Build work item.",
+    "version": "1.0.0",
+    "author": {
+        "name": "Laszlo Kajan",
+        "email": "laszlo.kajan@roche.com"
+    },
+    "main": "index.js",
+    "bin": {
+        "assign-transport-request": "./index.js"
+    },
+    "scripts": {
+        "start": "node --inspect-brk index.js",
+        "--start": "node --inspect index.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "http://github.com/substack/node-optimist.git"
+    },
+    "dependencies": {
+        "command-line-args": "^5.1.1",
+        "command-line-usage": "^6.1.0",
+        "puppeteer": "^5.3.1"
+    },
+    "license": "Apache-2.0"
+}
