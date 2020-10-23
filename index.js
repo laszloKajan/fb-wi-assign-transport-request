@@ -3,7 +3,6 @@
 const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
 
-
 const puppeteer = require('puppeteer');
 
 // Command line
@@ -14,7 +13,8 @@ const optionDefinitions = [
 		{ name: 'slowmo', type: Number, defaultValue: 0, description: "Slow execution down - for testing, e.g. 250, default 0." },
 		{ name: 'transport-request', alias: 't', type: String, description: "Transport request, e.g. 'C0000000000000004037'." },
 		//{ name: 'verbose', alias: 'v', type: Boolean, description: "Be verbose on the console." }
-		{ name: 'work-item-guid', alias: 'w', type: String, description: "Work item GUID, with or without dashes, e.g. '005056BD-A0FF-1EDB-83F6-92FDA092DD16'." }
+		{ name: 'work-item-guid', alias: 'w', type: String, description: "Work item GUID, with or without dashes, e.g. '005056BD-A0FF-1EDB-83F6-92FDA092DD16'." },
+		{ name: 'work-item-number', alias: 'n', type: String, description: "Work item number, e.g. '3200002672', to match against the work item opened, and the description of the TMS transport request." }
 ];
 
 const optionUsage = commandLineUsage([
@@ -70,6 +70,19 @@ async function assignTransportRequest(options) {
 		//const frames = await CRMApplicationFrame.frames();
 		//const frame = frames.find(f => f.name() === 'WorkAreaFrame1'); // name or id for the frame
 
+		// Is this the WI in options['work-item-number']?
+		await frame.waitForSelector("[id='bcTitle'] div");
+		const bcTitle = await frame.evaluate(() => { return document.querySelector("[id='bcTitle'] div").textContent; });
+
+		// Work Item (NC): 3200000665, 010 Hello ASPIRE
+		const bcTitleMatch = bcTitle.match(/^Work Item \(NC\): (\d{10})/);
+		if(!Array.isArray(bcTitleMatch) || bcTitleMatch[1] !== options['work-item-number']) {
+
+				console.error(`Error: work item number of given GUID does not match requested work item number: ${bcTitleMatch[1]} !== ${options['work-item-number']}`);
+				await browser.close();
+				return 1;
+		}
+
 		//debugger;					// chrome://inspect/#devices
 		await frame.waitForSelector("[id='C13_W39_V41_EDIT']");
 		await frame.click("[id='C13_W39_V41_EDIT']");
@@ -110,7 +123,7 @@ async function assignTransportRequest(options) {
 		const popupPage = await popupWindowTarget.page();
 		const popupFrames = await popupPage.frames();
 		const popupFrame = popupFrames.find(f => f.name() === 'WorkAreaFrame1popup');
-		
+
 		console.error(`Info: opened popup`);
 
 		await popupFrame.waitForSelector("[id='C25_W87_V88_V89_searchquerynode_parameters[2].OPERATOR-btn']");
@@ -183,6 +196,10 @@ async function assignTransportRequest(options) {
 				} else if (!options["work-item-guid"]) {
 
 						console.log("Error: 'work-item-guid' is not given, use --work-item-guid option.");
+						printHelp = true;
+				} else if (!options["work-item-number"]) {
+
+						console.log("Error: 'work-item-number' is not given, use --work-item-number option.");
 						printHelp = true;
 				}
 		}
