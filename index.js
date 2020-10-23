@@ -11,6 +11,7 @@ const optionDefinitions = [
 		{ name: 'crm-ui-start', type: String, defaultValue: 'https://bs1web.sap.roche.com/sap/bc/bsp/sap/crm_ui_start/default.htm', description: "URL of crm_ui_start." },
 		{ name: 'not-headless', type: Boolean, defaultValue: false, description: "Don't run headless - for testing." },
 		{ name: 'help', alias: 'h', type: Boolean, description: "Print this usage guide." },
+		{ name: 'slowmo', type: Number, defaultValue: 0, description: "Slow execution down - for testing, e.g. 250, default 0." },
 		{ name: 'transport-request', alias: 't', type: String, description: "Transport request, e.g. 'C0000000000000004037'." },
 		//{ name: 'verbose', alias: 'v', type: Boolean, description: "Be verbose on the console." }
 		{ name: 'work-item-guid', alias: 'w', type: String, description: "Work item GUID, with or without dashes, e.g. '005056BD-A0FF-1EDB-83F6-92FDA092DD16'." }
@@ -42,7 +43,7 @@ async function assignTransportRequest(options) {
 						height: 768
 				},
 				headless: !options['not-headless'],
-				//slowMo: 250,            // slow down by 250ms
+				slowMo: options['slowmo'],            // slow down
 				//devtools: true,
 				ignoreHTTPSErrors: true
 		});
