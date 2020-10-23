@@ -135,12 +135,11 @@ async function assignTransportRequest(options) {
 
 		await popupFrame.waitForSelector("[id='C25_W87_V88_V90_TABLE__1__1'].th-clr-row-sel");
 		await popupFrame.click("[id='C25_W87_V88_V90_ASSIGNTRA']");
+		await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
 
 		console.error(`Info: assigned transport request to work item`);
 
-		await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
 		await frame.click("[id='C13_W39_V41_SAVE']");
-
 		await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
 		await frame.waitForSelector("[id='CRMMessageLine1']");
 		await frame.waitForFunction(() => {
@@ -151,11 +150,13 @@ async function assignTransportRequest(options) {
 
 		//await frame.click("[id='C13_W39_V41_#Exit#_CANCEL']");
 		await frame.click("[id='C13_W39_V41_DISPLAY']");
+		await frame.waitForSelector("[id='C13_W39_V41_DISPLAY'].th-bt-text-dis");
 
 		console.error(`Info: switched to 'Display'`);
 
-		await frame.waitForSelector("[id='C13_W39_V41_DISPLAY'].th-bt-text-dis");
 		await browser.close();
+
+		console.error(`Info: closed browser`);
 
 		return 0;
 }
