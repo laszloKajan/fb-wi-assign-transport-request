@@ -8,7 +8,7 @@ const puppeteer = require('puppeteer');
 // Command line
 const optionDefinitions = [
 		{ name: 'crm-ui-start', type: String, defaultValue: 'https://bs1web.sap.roche.com/sap/bc/bsp/sap/crm_ui_start/default.htm', description: "URL of crm_ui_start." },
-		{ name: 'not-headless', type: Boolean, defaultValue: false, description: "Don't run headless - for testing." },
+		{ name: 'no-headless', type: Boolean, defaultValue: false, description: "Don't run headless - for testing." },
 		{ name: 'help', alias: 'h', type: Boolean, description: "Print this usage guide." },
 		{ name: 'slowmo', type: Number, defaultValue: 0, description: "Slow execution down - for testing, e.g. 250, default 0." },
 		{ name: 'transport-request', alias: 't', type: String, description: "Transport request, e.g. 'C0000000000000004037'." },
@@ -42,7 +42,7 @@ async function assignTransportRequest(options) {
 						width: 1024,
 						height: 768
 				},
-				headless: !options['not-headless'],
+				headless: !options['no-headless'],
 				slowMo: options['slowmo'],            // slow down
 				//devtools: true,
 				ignoreHTTPSErrors: true
@@ -89,7 +89,7 @@ async function assignTransportRequest(options) {
 		try {
 				await frame.waitForSelector("[id='C13_W39_V41_EDIT'].th-bt-icontext-dis", {timeout: 5000});
 		} catch(err) {
-				// "Transaction 3200000665 is being processed by user KAJANL"?
+				// "Transaction 3200000665 is being processed by user KAJANL"
 				const message = await frame.evaluate(() => {
 						return document.querySelectorAll("[id='CRMMessageLine1'] span")[2].textContent;
 				});
@@ -106,51 +106,92 @@ async function assignTransportRequest(options) {
 
 		console.error(`Info: editing work item`);
 
-		await frame.click("[id='0007_nl5_5_C13_W39_V41_mid']");
-		await frame.waitForSelector("[id='C24_W82_V83_V84_thtmlb_menuButton_1']");
-		await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
-		await frame.click("[id='C24_W82_V83_V84_thtmlb_menuButton_1']");
+		try {
+				await frame.click("[id='0007_nl5_5_C13_W39_V41_mid']");
+				await frame.waitForSelector("[id='C24_W82_V83_V84_thtmlb_menuButton_1']");
+				await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
+				await frame.click("[id='C24_W82_V83_V84_thtmlb_menuButton_1']");
 
-		await frame.waitForSelector("[id='C24_W82_V83_V84_thtmlb_menuButton_1__items____AssignTransReq']");
-		await frame.evaluate(() => {
-				eMu = new window.MouseEvent("mouseup");
-				document.getElementById("C24_W82_V83_V84_thtmlb_menuButton_1__items____AssignTransReq").dispatchEvent(eMu);
-		});
-		await frame.waitForSelector("[id='submitInProgress']");
-		//"https://bs1web.sap.roche.com/sap(====)/bc/bsp/sap/bsp_wd_base/popup_buffered_frame_cached.htm?sap-client=010&sap-language=EN&sap-domainRelax=min"
-		const popupWindowTarget = await browser.waitForTarget(target => /bsp_wd_base\/popup_buffered_frame_cached/.test(target.url()));
+				await frame.waitForSelector("[id='C24_W82_V83_V84_thtmlb_menuButton_1__items____AssignTransReq']");
+				await frame.evaluate(() => {
+						eMu = new window.MouseEvent("mouseup");
+						document.getElementById("C24_W82_V83_V84_thtmlb_menuButton_1__items____AssignTransReq").dispatchEvent(eMu);
+				});
+				await frame.waitForSelector("[id='submitInProgress']");
+				//"https://bs1web.sap.roche.com/sap(====)/bc/bsp/sap/bsp_wd_base/popup_buffered_frame_cached.htm?sap-client=010&sap-language=EN&sap-domainRelax=min"
+				const popupWindowTarget = await browser.waitForTarget(target => /bsp_wd_base\/popup_buffered_frame_cached/.test(target.url()));
 
-		const popupPage = await popupWindowTarget.page();
-		const popupFrames = await popupPage.frames();
-		const popupFrame = popupFrames.find(f => f.name() === 'WorkAreaFrame1popup');
+				const popupPage = await popupWindowTarget.page();
+				const popupFrames = await popupPage.frames();
+				const popupFrame = popupFrames.find(f => f.name() === 'WorkAreaFrame1popup');
 
-		console.error(`Info: opened popup`);
+				if(popupFrame === undefined) { throw new Error("could not find popup frame 'WorkAreaFrame1popup'"); }
+				console.error(`Info: opened popup`);
 
-		await popupFrame.waitForSelector("[id='C25_W87_V88_V89_searchquerynode_parameters[2].OPERATOR-btn']");
-		await popupFrame.click("[id='C25_W87_V88_V89_searchquerynode_parameters[2].OPERATOR-btn']");
+				try {
+						await popupFrame.waitForSelector("[id='C25_W87_V88_V89_searchquerynode_parameters[2].OPERATOR-btn']");
+						await popupFrame.click("[id='C25_W87_V88_V89_searchquerynode_parameters[2].OPERATOR-btn']");
 
-		await popupFrame.waitForSelector("[id='C25_W87_V88_V89_searchquerynode_parameters[2].OPERATOR__items']");
-		await popupFrame.evaluate(() => {
-				document.getElementById("C25_W87_V88_V89_searchquerynode_parameters[2].OPERATOR__items").querySelector("a[key='CP']").click();
-		});
-		// C.f. frame.type()
-		//debugger;
-		//await popupFrame.type("[id='C25_W87_V88_V89_searchquerynode_parameters[2].VALUE1']", options['transport-request']);
-		// kajanl: Attention: /soon/ after clicking the CP item, its value is cleared. I found no good way to tell when this is, hence the (shameful) waitForTimeout().
-		// 	.type() is not much better: it's sensitive to mouse moves, when it is not run headless.
-		await popupFrame.waitForTimeout(500);
-		await popupFrame.evaluate((transportRequest) => {
-				document.getElementById("C25_W87_V88_V89_searchquerynode_parameters[2].VALUE1").value = transportRequest;
-		}, options['transport-request']);
-		await popupFrame.click("[id='C25_W87_V88_V89_SEARCH_BTN']");
-		await popupFrame.waitForSelector("[id='C25_W87_V88_V90_TABLE_sel_1-rowsel']");
-		await popupFrame.click("[id='C25_W87_V88_V90_TABLE_sel_1-rowsel']");
+						await popupFrame.waitForSelector("[id='C25_W87_V88_V89_searchquerynode_parameters[2].OPERATOR__items']");
+						await popupFrame.evaluate(() => {
+								document.getElementById("C25_W87_V88_V89_searchquerynode_parameters[2].OPERATOR__items").querySelector("a[key='CP']").click();
+						});
+						// C.f. frame.type()
+						//debugger;
+						//await popupFrame.type("[id='C25_W87_V88_V89_searchquerynode_parameters[2].VALUE1']", options['transport-request']);
+						// kajanl: Attention: /soon/ after clicking the CP item, its value is cleared. I found no good way to tell when this is, hence the (shameful) waitForTimeout().
+						// 	.type() is not much better: it's sensitive to mouse moves, when it is not run headless.
+						await popupFrame.waitForTimeout(500);
+						await popupFrame.evaluate((transportRequest) => {
+								document.getElementById("C25_W87_V88_V89_searchquerynode_parameters[2].VALUE1").value = transportRequest;
+						}, options['transport-request']);
+						await popupFrame.click("[id='C25_W87_V88_V89_SEARCH_BTN']");
+						await popupFrame.waitForSelector("[id='C25_W87_V88_V90_TABLE_sel_1-rowsel']");
 
-		await popupFrame.waitForSelector("[id='C25_W87_V88_V90_TABLE__1__1'].th-clr-row-sel");
-		await popupFrame.click("[id='C25_W87_V88_V90_ASSIGNTRA']");
-		await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
+						// Does the transport description match this work item?
+						await popupFrame.waitForSelector("[id='C25_W87_V88_V90_searchresultnode_table[1].text']");
+						const trText = await popupFrame.evaluate(() => { return document.getElementById("C25_W87_V88_V90_searchresultnode_table[1].text").textContent; });
 
-		console.error(`Info: assigned transport request to work item`);
+						// WI: 3200002672, commit: 4a50f4c42595d9c778f0631351bf4d31bad1
+						const trTextMatch = trText.match(/\bWI: (\d{10})/);
+						if(!Array.isArray(trTextMatch) || trTextMatch[1] !== options['work-item-number']) {
+
+								throw new Error(`work item number of given transport does not match requested work item number: ${trTextMatch[1]} !== ${options['work-item-number']}`);
+						}
+
+						await popupFrame.click("[id='C25_W87_V88_V90_TABLE_sel_1-rowsel']");
+
+						await popupFrame.waitForSelector("[id='C25_W87_V88_V90_TABLE__1__1'].th-clr-row-sel");
+						await popupFrame.click("[id='C25_W87_V88_V90_ASSIGNTRA']");
+						await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
+
+						console.error(`Info: assigned transport request to work item`);
+
+				} catch (err){
+						// Close the popup, the re-throw the error, which should result in cancelling any changes
+
+						console.error(`Info: error occurred on popup, closing popup`);
+						await popupPage.close({runBeforeUnload: true});
+						await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
+						console.error(`Info: error occurred on popup, popup is now closed`);
+						throw err;
+				}
+		} catch (err) {
+				debugger;
+				console.error(`Error: ${err.message}`);
+
+				// Cancel changes
+				console.error(`Info: error occurred while editing, cancelling`);
+				await frame.waitForSelector("[id='C13_W39_V41_#Exit#_CANCEL']");
+				await frame.click("[id='C13_W39_V41_#Exit#_CANCEL']");
+				await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
+				await frame.waitForSelector("[id='C13_W39_V41_#Exit#_CANCEL'].th-bt-icontext-dis");
+				console.error(`Info: error occurred while editing, cancelled`);
+
+				await browser.close();
+				console.error(`Info: closed browser`);
+				return 1;
+		}
 
 		await frame.click("[id='C13_W39_V41_SAVE']");
 		await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
@@ -161,7 +202,6 @@ async function assignTransportRequest(options) {
 
 		console.error(`Info: saved work item`);
 
-		//await frame.click("[id='C13_W39_V41_#Exit#_CANCEL']");
 		await frame.click("[id='C13_W39_V41_DISPLAY']");
 		await frame.waitForSelector("[id='C13_W39_V41_DISPLAY'].th-bt-text-dis");
 
