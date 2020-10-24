@@ -27,6 +27,18 @@ const optionUsage = commandLineUsage([
 		},
 		{ header: 'Options', optionList: optionDefinitions }]);
 
+async function logoffBrowserClose(browser, page) {
+
+		await page.evaluate(() => {
+			crmuifClient.winMan.closeAll();
+			crmuifClient.logOff();
+		});
+		console.error(`Info: logged off`);
+
+		await browser.close();
+		console.error(`Info: closed browser`);
+}
+
 async function assignTransportRequest(options) {
 		// Env
 		const pageUser = process.env.PAGEUSER;
@@ -39,7 +51,7 @@ async function assignTransportRequest(options) {
 		const browser = await puppeteer.launch({
 				//args: ['--no-sandbox', '--disable-setuid-sandbox'],
 				defaultViewport: {
-						width: 1024,
+						width: 1280,
 						height: 768
 				},
 				headless: !options['no-headless'],
@@ -79,7 +91,7 @@ async function assignTransportRequest(options) {
 		if(!Array.isArray(bcTitleMatch) || bcTitleMatch[1] !== options['work-item-number']) {
 
 				console.error(`Error: work item number of given GUID does not match requested work item number: ${bcTitleMatch[1]} !== ${options['work-item-number']}`);
-				await browser.close();
+				await logoffBrowserClose(browser, page);
 				return 1;
 		}
 
@@ -97,25 +109,26 @@ async function assignTransportRequest(options) {
 				if(/^Transaction.*is being processed by user/.test(message)) {
 
 						console.error(`Error: ${message}`);
-						await browser.close();
+						await logoffBrowserClose(browser, page);
 						return 2; // WI is locked
 				} else {
 						throw err;
 				}
 		}
 
-		console.error(`Info: editing work item`);
+		console.error('Info: editing work item');
 
 		try {
-				await frame.click("[id='0007_nl5_5_C13_W39_V41_mid']");
-				await frame.waitForSelector("[id='C24_W82_V83_V84_thtmlb_menuButton_1']");
-				await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
-				await frame.click("[id='C24_W82_V83_V84_thtmlb_menuButton_1']");
+				const btnTransportManagement = await frame.waitForXPath("//td[text()='Transport Management']");
+				await btnTransportManagement.click();
+				const btnMore = await frame.waitForXPath("//div[@id='thtmlbOverviewPageBox']//b[text()='More']");
+				await btnMore.click();
 
-				await frame.waitForSelector("[id='C24_W82_V83_V84_thtmlb_menuButton_1__items____AssignTransReq']");
-				await frame.evaluate(() => {
+				const btnAssignTransReq = await frame.waitForXPath("//span[text()='Assign Transport Request']");
+				// Must be done on the 3rd ascendent <a>
+				await btnAssignTransReq.evaluate(node => {
 						eMu = new window.MouseEvent("mouseup");
-						document.getElementById("C24_W82_V83_V84_thtmlb_menuButton_1__items____AssignTransReq").dispatchEvent(eMu);
+						node.parentElement.parentElement.parentElement.dispatchEvent(eMu);
 				});
 				await frame.waitForSelector("[id='submitInProgress']");
 				//"https://bs1web.sap.roche.com/sap(====)/bc/bsp/sap/bsp_wd_base/popup_buffered_frame_cached.htm?sap-client=010&sap-language=EN&sap-domainRelax=min"
@@ -146,6 +159,9 @@ async function assignTransportRequest(options) {
 								document.getElementById("C25_W87_V88_V89_searchquerynode_parameters[2].VALUE1").value = transportRequest;
 						}, options['transport-request']);
 						await popupFrame.click("[id='C25_W87_V88_V89_SEARCH_BTN']");
+
+						console.error(`Info: searching for transport request`);
+
 						await popupFrame.waitForSelector("[id='C25_W87_V88_V90_TABLE_sel_1-rowsel']");
 
 						// Does the transport description match this work item?
@@ -156,7 +172,10 @@ async function assignTransportRequest(options) {
 						const trTextMatch = trText.match(/\bWI: (\d{10})/);
 						if(!Array.isArray(trTextMatch) || trTextMatch[1] !== options['work-item-number']) {
 
-								throw new Error(`work item number of given transport does not match requested work item number: ${trTextMatch[1]} !== ${options['work-item-number']}`);
+								const message = `work item number of given transport does not match requested work item number: ${trTextMatch[1]} !== ${options['work-item-number']}`;
+								console.error(`Error: ${message}`);
+
+								throw new Error(message);
 						}
 
 						await popupFrame.click("[id='C25_W87_V88_V90_TABLE_sel_1-rowsel']");
@@ -169,6 +188,7 @@ async function assignTransportRequest(options) {
 
 				} catch (err){
 						// Close the popup, the re-throw the error, which should result in cancelling any changes
+						debugger;
 
 						console.error(`Info: error occurred on popup, closing popup`);
 						await popupPage.close({runBeforeUnload: true});
@@ -178,7 +198,7 @@ async function assignTransportRequest(options) {
 				}
 		} catch (err) {
 				debugger;
-				console.error(`Error: ${err.message}`);
+				console.error(err);
 
 				// Cancel changes
 				console.error(`Info: error occurred while editing, cancelling`);
@@ -188,8 +208,7 @@ async function assignTransportRequest(options) {
 				await frame.waitForSelector("[id='C13_W39_V41_#Exit#_CANCEL'].th-bt-icontext-dis");
 				console.error(`Info: error occurred while editing, cancelled`);
 
-				await browser.close();
-				console.error(`Info: closed browser`);
+				await logoffBrowserClose(browser, page);
 				return 1;
 		}
 
@@ -207,10 +226,7 @@ async function assignTransportRequest(options) {
 
 		console.error(`Info: switched to 'Display'`);
 
-		await browser.close();
-
-		console.error(`Info: closed browser`);
-
+		await logoffBrowserClose(browser, page);
 		return 0;
 }
 
