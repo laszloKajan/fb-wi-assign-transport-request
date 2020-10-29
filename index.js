@@ -19,19 +19,21 @@ const optionDefinitions = [
 
 const optionUsage = commandLineUsage([
 		{ header: "assign-transport-request", content: "Assign transport request to work item." },
-		{
-				header: "Synopsis", content: [
-						"$ assign-transport-request -t C0000000000000004037 -w 005056BD-A0FF-1EDB-83F6-92FDA092DD16",
-						'$ assign-transport-request --help'
-				],
-		},
-		{ header: 'Options', optionList: optionDefinitions }]);
+		{ header: "Synopsis", content: [
+				"$ assign-transport-request -t C0000000000000004037 -w 005056BD-A0FF-1EDB-83F6-92FDA092DD16 -n 3200002672",
+				'$ assign-transport-request --help']},
+		{ header: 'Options', optionList: optionDefinitions },
+		{ header: 'Environment Variables', content: [
+				{name: 'PAGEUSER',		desc: 'User name for the Solution Manager (SolMan) connection.'},
+				{name: 'PAGEPASSWORD',	desc: 'Password for the SolMan connection.'}]
+		}
+]);
 
 async function logoffBrowserClose(browser, page) {
 
 		await page.evaluate(() => {
-			crmuifClient.winMan.closeAll();
-			crmuifClient.logOff();
+				crmuifClient.winMan.closeAll();
+				crmuifClient.logOff();
 		});
 		console.error(`Info: logged off`);
 
@@ -124,7 +126,18 @@ async function assignTransportRequest(options) {
 				const btnMore = await frame.waitForXPath("//div[@id='thtmlbOverviewPageBox']//b[text()='More']");
 				await btnMore.click();
 
-				const btnAssignTransReq = await frame.waitForXPath("//span[text()='Assign Transport Request']");
+				console.error(`Info: waiting for 'Assign Transport Request'`);
+
+				let btnAssignTransReq;
+				try {
+						btnAssignTransReq = await frame.waitForXPath("//span[text()='Assign Transport Request']");
+				}
+				catch (err) {
+						// Very rarely we get a timeout for the above. Let's take a screen shot to see what happened:
+						await page.screenshot({path: './waitingForAssignTransportRequest.png'});
+						throw err;
+				}
+
 				// Must be done on the 3rd ascendent <a>
 				await btnAssignTransReq.evaluate(node => {
 						eMu = new window.MouseEvent("mouseup");
