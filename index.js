@@ -3,6 +3,7 @@
 const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
 
+const axios = require('axios');
 const puppeteer = require('puppeteer');
 
 // Command line
@@ -13,7 +14,7 @@ const optionDefinitions = [
 		{ name: 'slowmo', type: Number, defaultValue: 0, description: "Slow execution down - for testing, e.g. 250, default 0." },
 		{ name: 'transport-request', alias: 't', type: String, description: "Transport request, e.g. 'C0000000000000004037'." },
 		//{ name: 'verbose', alias: 'v', type: Boolean, description: "Be verbose on the console." }
-		{ name: 'work-item-guid', alias: 'w', type: String, description: "Work item GUID, with or without dashes, e.g. '005056BD-A0FF-1EDB-83F6-92FDA092DD16'." },
+		{ name: 'work-item-guid', alias: 'w', type: String, description: "Optional work item GUID, with or without dashes, e.g. '005056BD-A0FF-1EDB-83F6-92FDA092DD16'." },
 		{ name: 'work-item-number', alias: 'n', type: String, description: "Work item number, e.g. '3200002672', to match against the work item opened, and the description of the TMS transport request." }
 ];
 
@@ -46,7 +47,35 @@ async function assignTransportRequest(options) {
 		const pageUser = process.env.PAGEUSER;
 		const pagePwd = process.env.PAGEPASSWORD;
 
-		const workItemGuid = options['work-item-guid'].replace(/-/g, '').toUpperCase();
+		const encUserPwd = Buffer.from(`${pageUser}:${pagePwd}`).toString('base64');
+
+		// Do we have a work item GUID?
+		let workItemGuid = options['work-item-guid'];
+		if(!workItemGuid) {
+				const matches = options['crm-ui-start'].match('^https://[^/]+');
+				if(!Array.isArray(matches)) {
+
+						console.error(`Error: can't find base url in ${options['crm-ui-start']} for OData call`);
+						return 1;
+				}
+				const odataUrl = `${matches[0]}/sap/opu/odata/salm/CRM_GENERIC_SRV/WORKSPACESET?sap-language=EN&$filter=(ProcessType%20eq%20%27S1MJ%27%20and%20ObjectId%20eq%20%27${options['work-item-number']}%27)&$select=Guid,ObjectId&$format=json`;
+				let response;
+				try {
+						response = await axios.get(odataUrl,{ headers: { 'Authorization': `Basic ${encUserPwd}` } });
+				} catch(err) {
+						console.error(err);
+						return 1;
+				}
+				debugger;
+				workItemGuid = response.data.d.results[0].Guid;
+				console.error(`Info: GUID for ${options['work-item-number']} is ${workItemGuid}`);
+		}
+		workItemGuid = workItemGuid.replace(/-/g, '').toUpperCase();
+		if(!workItemGuid) {
+			console.error(`Error: work item GUID is unknown`);
+			return 1;
+		}
+		return 1;
 
 		console.error(`Info: opening work item ${workItemGuid}`);
 
@@ -61,8 +90,6 @@ async function assignTransportRequest(options) {
 				//devtools: true,
 				ignoreHTTPSErrors: true
 		});
-
-		const encUserPwd = Buffer.from(`${pageUser}:${pagePwd}`).toString('base64');
 
 		let pages = await browser.pages();
 		let page;
@@ -256,19 +283,18 @@ async function assignTransportRequest(options) {
 		} else {
 				if (!options['crm-ui-start']) {
 
-						console.log("Error: 'crm-ui-start' is not given, use --crm-ui-start option.");
+						console.error("Error: 'crm-ui-start' is not given, use --crm-ui-start option.");
 						printHelp = true;
 				} else if (!options["transport-request"]) {
 
-						console.log("Error: 'transport-request' is not given, use --transport-request option.");
+						console.error("Error: 'transport-request' is not given, use --transport-request option.");
 						printHelp = true;
 				} else if (!options["work-item-guid"]) {
 
-						console.log("Error: 'work-item-guid' is not given, use --work-item-guid option.");
-						printHelp = true;
+						console.log("Info: 'work-item-guid' is not given, it will be deduced from the work item number.");
 				} else if (!options["work-item-number"]) {
 
-						console.log("Error: 'work-item-number' is not given, use --work-item-number option.");
+						console.error("Error: 'work-item-number' is not given, use --work-item-number option.");
 						printHelp = true;
 				}
 		}

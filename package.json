@@ -8,7 +8,7 @@
     },
     "main": "index.js",
     "bin": {
-        "assign-transport-request": "./index.js"
+        "assign-transport-request": "index.js"
     },
     "scripts": {
         "start": "node --inspect-brk index.js",
@@ -19,6 +19,7 @@
         "url": "http://github.com/substack/node-optimist.git"
     },
     "dependencies": {
+        "axios": "^0.21.0",
         "command-line-args": "^5.1.1",
         "command-line-usage": "^6.1.0",
         "puppeteer": "^5.3.1"
