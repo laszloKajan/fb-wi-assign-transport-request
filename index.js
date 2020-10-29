@@ -75,7 +75,7 @@ async function assignTransportRequest(options) {
 			console.error(`Error: work item GUID is unknown`);
 			return 1;
 		}
-		return 1;
+		//return 1;
 
 		console.error(`Info: opening work item ${workItemGuid}`);
 
