@@ -25,8 +25,8 @@ const optionUsage = commandLineUsage([
 				'$ assign-transport-request --help']},
 		{ header: 'Options', optionList: optionDefinitions },
 		{ header: 'Environment Variables', content: [
-				{name: 'PAGEUSER',		desc: 'User name for the Solution Manager (SolMan) connection.'},
-				{name: 'PAGEPASSWORD',	desc: 'Password for the SolMan connection.'}]
+				{name: 'SOLMAN_USER',	desc: 'User name for the Solution Manager (SolMan) connection.'},
+				{name: 'SOLMAN_PASS',	desc: 'Password for the SolMan connection.'}]
 		}
 ]);
 
@@ -66,8 +66,8 @@ async function logoffBrowserClose(browser, page) {
 
 async function assignTransportRequest(options) {
 		// Env
-		const pageUser = process.env.PAGEUSER;
-		const pagePwd = process.env.PAGEPASSWORD;
+		const pageUser = process.env.SOLMAN_USER;
+		const pagePwd = process.env.SOLMAN_PASS;
 
 		const encUserPwd = Buffer.from(`${pageUser}:${pagePwd}`).toString('base64');
 
