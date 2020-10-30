@@ -30,6 +30,28 @@ const optionUsage = commandLineUsage([
 		}
 ]);
 
+async function getWorkItemGuid(options, encUserPwd) {
+		let workItemGuid = options['work-item-guid'];
+		if(!workItemGuid) {
+				const matches = options['crm-ui-start'].match('^https://[^/]+');
+				if(!Array.isArray(matches)) {
+
+						throw new Error(`can't find base url in ${options['crm-ui-start']} for OData call`);
+				}
+				const odataUrl = `${matches[0]}/sap/opu/odata/salm/CRM_GENERIC_SRV/WORKSPACESET?sap-language=EN&$filter=(ProcessType%20eq%20%27S1MJ%27%20and%20ObjectId%20eq%20%27${options['work-item-number']}%27)&$select=Guid,ObjectId&$format=json`;
+				const response = await axios.get(odataUrl,{ headers: { 'Authorization': `Basic ${encUserPwd}` } });
+				debugger;
+
+				workItemGuid = response.data.d.results[0].Guid;
+				console.error(`Info: GUID for ${options['work-item-number']} is ${workItemGuid}`);
+		}
+		workItemGuid = workItemGuid.replace(/-/g, '').toUpperCase();
+		if(!workItemGuid) {
+				throw new Error(`work item GUID is unknown`);
+		}
+		return workItemGuid;
+}
+
 async function logoffBrowserClose(browser, page) {
 
 		await page.evaluate(() => {
@@ -50,34 +72,9 @@ async function assignTransportRequest(options) {
 		const encUserPwd = Buffer.from(`${pageUser}:${pagePwd}`).toString('base64');
 
 		// Do we have a work item GUID?
-		let workItemGuid = options['work-item-guid'];
-		if(!workItemGuid) {
-				const matches = options['crm-ui-start'].match('^https://[^/]+');
-				if(!Array.isArray(matches)) {
-
-						console.error(`Error: can't find base url in ${options['crm-ui-start']} for OData call`);
-						return 1;
-				}
-				const odataUrl = `${matches[0]}/sap/opu/odata/salm/CRM_GENERIC_SRV/WORKSPACESET?sap-language=EN&$filter=(ProcessType%20eq%20%27S1MJ%27%20and%20ObjectId%20eq%20%27${options['work-item-number']}%27)&$select=Guid,ObjectId&$format=json`;
-				let response;
-				try {
-						response = await axios.get(odataUrl,{ headers: { 'Authorization': `Basic ${encUserPwd}` } });
-				} catch(err) {
-						console.error(err);
-						return 1;
-				}
-				debugger;
-				workItemGuid = response.data.d.results[0].Guid;
-				console.error(`Info: GUID for ${options['work-item-number']} is ${workItemGuid}`);
-		}
-		workItemGuid = workItemGuid.replace(/-/g, '').toUpperCase();
-		if(!workItemGuid) {
-			console.error(`Error: work item GUID is unknown`);
-			return 1;
-		}
-		//return 1;
-
+		const workItemGuid = await getWorkItemGuid(options, encUserPwd);
 		console.error(`Info: opening work item ${workItemGuid}`);
+		//return 1;
 
 		const browser = await puppeteer.launch({
 				//args: ['--no-sandbox', '--disable-setuid-sandbox'],
