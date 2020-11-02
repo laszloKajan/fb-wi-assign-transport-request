@@ -1,22 +1,25 @@
 {
-    "name": "assign-transport-request",
+    "name": "@sap-aspire/assign-transport-request",
     "description": "Assign transport request to Focused Build work item.",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "author": {
         "name": "Laszlo Kajan",
         "email": "laszlo.kajan@roche.com"
     },
     "main": "index.js",
+    "files": [
+        "index.js"
+    ],
     "bin": {
         "assign-transport-request": "index.js"
     },
     "scripts": {
-        "start": "node --inspect-brk index.js",
-        "--start": "node --inspect index.js"
+        "inspect-brk": "node --inspect-brk index.js",
+        "inspect": "node --inspect index.js"
     },
     "repository": {
         "type": "git",
-        "url": "http://github.com/substack/node-optimist.git"
+        "url": "https://code.roche.com/sap-aspire/scp/supporting-projects/devops-fb-assign-transport-request.git"
     },
     "dependencies": {
         "axios": "^0.21.0",
@@ -24,5 +27,8 @@
         "command-line-usage": "^6.1.0",
         "puppeteer": "^5.3.1"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "publishConfig": {
+        "registry": "https://code.roche.com/api/v4/projects/4642/packages/npm/"
+    }
 }
