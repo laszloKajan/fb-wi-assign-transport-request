@@ -1,36 +1,25 @@
-# https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Auto-DevOps.gitlab-ci.yml
-include:
-  - template: Auto-DevOps.gitlab-ci.yml
-
-# https://hub.docker.com/_/node?tab=tags
-image: node:10.23-alpine
-
 # https://code.roche.com/sergio.champel/hello-npm/-/blob/master/.gitlab-ci.yml
 .shared_runners:
   tags:
-    - Linux
-    - docker
     - amd64
+    - docker
+    - linux
 
-stages:
-  - build
-  - publish
+code_quality:
+  allow_failure: false
 
-npm install:
-  extends:
-    - .shared_runners
-  stage: build
-  script:
-    - npm ci
-  artifacts:
-    paths:
-      - node_modules/
+eslint-sast:
+  allow_failure: false
+
+nodejs-scan-sast:
+  allow_failure: false
 
 npm publish:
-  extends:
-    - .shared_runners
-  needs: ["npm install"]
-  stage: publish
+  #extends:
+  #  - .shared_runners
+  # https://hub.docker.com/_/node?tab=tags
+  image: node:lts-alpine
+  stage: deploy
   script:
     - echo '//code.roche.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}' > .npmrc
     - npm publish
@@ -38,3 +27,8 @@ npm publish:
     refs:
       - master
 
+# include examples:
+#   https://docs.gitlab.com/ee/ci/yaml/includes.html
+include:
+  # https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Auto-DevOps.gitlab-ci.yml
+  - template: Auto-DevOps.gitlab-ci.yml
