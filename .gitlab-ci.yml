@@ -5,6 +5,15 @@
     - docker
     - linux
 
+# https://docs.gitlab.com/ee/ci/caching/index.html
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .npm/
+
+#before_script:
+#  - npm ci --cache .npm --prefer-offline
+
 code_quality:
   allow_failure: false
 
@@ -23,9 +32,8 @@ npm publish:
   script:
     - echo '//code.roche.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}' > .npmrc
     - npm publish
-  only:
-    refs:
-      - master
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 # include examples:
 #   https://docs.gitlab.com/ee/ci/yaml/includes.html
