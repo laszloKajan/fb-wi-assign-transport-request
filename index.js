@@ -44,7 +44,12 @@ async function getWorkItemGuid(options, encUserPwd) {
 				// With SALM/MC_SRV, we get a 500 'Field symbol has not been assigned yet' when there is no hit.
 				let response;
 				try {
-						response = await axios.get(odataUrl, {headers: {'Authorization': `Basic ${encUserPwd}`}});
+						response = await axios.get(odataUrl, {
+								headers: {'Authorization': `Basic ${encUserPwd}`},
+								httpsAgent: new https.Agent({
+										rejectUnauthorized: false
+								})
+						});
 						debugger;
 						workItemGuid = response.data.d.results[0].Guid;
 						console.error(`Info: GUID for ${options['work-item-number']} is ${workItemGuid}`);
