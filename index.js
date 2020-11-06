@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --unhandled-rejections=strict
 'use strict';
 const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
@@ -44,12 +44,13 @@ async function getWorkItemGuid(options, encUserPwd) {
 				// With SALM/MC_SRV, we get a 500 'Field symbol has not been assigned yet' when there is no hit.
 				let response;
 				try {
-						response = await axios.get(odataUrl,{ headers: { 'Authorization': `Basic ${encUserPwd}` } });
+						response = await axios.get(odataUrl, {headers: {'Authorization': `Basic ${encUserPwd}`}});
 						debugger;
 						workItemGuid = response.data.d.results[0].Guid;
 						console.error(`Info: GUID for ${options['work-item-number']} is ${workItemGuid}`);
 				} catch (err) {
-						throw new Error(`work item GUID is unknown`);
+						console.error(`Error: GUID of work item ${options['work-item-number']} is unknown`);
+						throw err;
 				}
 		}
 		workItemGuid = workItemGuid.replace(/-/g, '').toUpperCase();
