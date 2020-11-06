@@ -4,6 +4,7 @@ const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
 
 const axios = require('axios');
+const https = require('https');
 const puppeteer = require('puppeteer');
 const sprintf = require('sprintf-js').sprintf;
 
