@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --unhandled-rejections=strict
+#!/usr/bin/node --unhandled-rejections=strict
 'use strict';
 const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
