@@ -1,4 +1,4 @@
-#!/usr/bin/node --unhandled-rejections=strict
+#!/usr/bin/env node
 'use strict';
 const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
@@ -296,6 +296,11 @@ async function assignTransportRequest(options, pageUser, pagePwd) {
 (async () => {
 		let retCode = 0;
 		//
+		process.on('unhandledRejection', (reason, p) => {
+				console.error('Unhandled Rejection at:', p, 'reason:', reason)
+				process.exit(1)
+		});
+
 		// Env
 		const pageUser = process.env.SOLMAN_USER;
 		const pagePwd = process.env.SOLMAN_PASS;
