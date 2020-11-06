@@ -1,7 +1,7 @@
 {
     "name": "@sap-aspire/assign-transport-request",
     "description": "Assign transport request to Focused Build work item.",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "author": {
         "name": "Laszlo Kajan",
         "email": "laszlo.kajan@roche.com"
@@ -25,7 +25,8 @@
         "axios": "0.21.0",
         "command-line-args": "5.1.1",
         "command-line-usage": "6.1.0",
-        "puppeteer": "5.4.1"
+        "puppeteer": "5.4.1",
+        "sprintf-js": "1.1.2"
     },
     "license": "Apache-2.0",
     "publishConfig": {

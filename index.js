@@ -5,6 +5,7 @@ const commandLineUsage = require('command-line-usage');
 
 const axios = require('axios');
 const puppeteer = require('puppeteer');
+const sprintf = require('sprintf-js').sprintf;
 
 // Command line
 const optionDefinitions = [
@@ -12,7 +13,7 @@ const optionDefinitions = [
 		{ name: 'no-headless', type: Boolean, defaultValue: false, description: "Don't run headless - for testing." },
 		{ name: 'help', alias: 'h', type: Boolean, description: "Print this usage guide." },
 		{ name: 'slowmo', type: Number, defaultValue: 0, description: "Slow execution down - for testing, e.g. 250, default 0." },
-		{ name: 'transport-request', alias: 't', type: String, description: "Transport request, e.g. 'C0000000000000004037'." },
+		{ name: 'transport-request', alias: 't', type: String, description: "Transport request, e.g. 'C0000000000000004037' or '4037'." },
 		//{ name: 'verbose', alias: 'v', type: Boolean, description: "Be verbose on the console." }
 		{ name: 'work-item-guid', alias: 'w', type: String, description: "Optional work item GUID, with or without dashes, e.g. '005056BD-A0FF-1EDB-83F6-92FDA092DD16'." },
 		{ name: 'work-item-number', alias: 'n', type: String, description: "Work item number, e.g. '3200002672', to match against the work item opened, and the description of the TMS transport request." }
@@ -21,7 +22,8 @@ const optionDefinitions = [
 const optionUsage = commandLineUsage([
 		{ header: "assign-transport-request", content: "Assign transport request to work item." },
 		{ header: "Synopsis", content: [
-				"$ assign-transport-request -t C0000000000000004037 -w 005056BD-A0FF-1EDB-83F6-92FDA092DD16 -n 3200002672",
+				"$ assign-transport-request -t C0000000000000004207 -w 005056BD-A0FF-1EDB-83F6-92FDA092DD16 -n 3200000665",
+				"$ assign-transport-request -t 4207 -n 3200000665",
 				'$ assign-transport-request --help']},
 		{ header: 'Options', optionList: optionDefinitions },
 		{ header: 'Environment Variables', content: [
@@ -38,18 +40,32 @@ async function getWorkItemGuid(options, encUserPwd) {
 
 						throw new Error(`can't find base url in ${options['crm-ui-start']} for OData call`);
 				}
-				const odataUrl = `${matches[0]}/sap/opu/odata/salm/CRM_GENERIC_SRV/WORKSPACESET?sap-language=EN&$filter=(ProcessType%20eq%20%27S1MJ%27%20and%20ObjectId%20eq%20%27${options['work-item-number']}%27)&$select=Guid,ObjectId&$format=json`;
-				const response = await axios.get(odataUrl,{ headers: { 'Authorization': `Basic ${encUserPwd}` } });
-				debugger;
-
-				workItemGuid = response.data.d.results[0].Guid;
-				console.error(`Info: GUID for ${options['work-item-number']} is ${workItemGuid}`);
+				const odataUrl = `${matches[0]}/sap/opu/odata/SALM/MC_SRV/DocTypeSet('S1CG%3BS1MJ')/DocWorkItems?sap-language=en&$filter=Id%20eq%20%27${options['work-item-number']}%27&$select=Guid,Id&$format=json`;
+				// With SALM/MC_SRV, we get a 500 'Field symbol has not been assigned yet' when there is no hit.
+				let response;
+				try {
+						response = await axios.get(odataUrl,{ headers: { 'Authorization': `Basic ${encUserPwd}` } });
+						debugger;
+						workItemGuid = response.data.d.results[0].Guid;
+						console.error(`Info: GUID for ${options['work-item-number']} is ${workItemGuid}`);
+				} catch (err) {
+						throw new Error(`work item GUID is unknown`);
+				}
 		}
 		workItemGuid = workItemGuid.replace(/-/g, '').toUpperCase();
 		if(!workItemGuid) {
 				throw new Error(`work item GUID is unknown`);
 		}
 		return workItemGuid;
+}
+
+function getTransportRequest(transportRequest) {
+		// 'C0000000000000004037'
+		let retVal;
+		const matches = transportRequest.match(/^((C\d{19})|(\d+))$/);
+		if(!Array.isArray(matches)) { throw new Error(`transport request ${transportRequest} doesn't match expected pattern`); }
+		if(matches[2]) { retVal = transportRequest; } else { retVal = sprintf("C%019s", matches[3]); }
+		return retVal;
 }
 
 async function logoffBrowserClose(browser, page) {
@@ -64,16 +80,15 @@ async function logoffBrowserClose(browser, page) {
 		console.error(`Info: closed browser`);
 }
 
-async function assignTransportRequest(options) {
-		// Env
-		const pageUser = process.env.SOLMAN_USER;
-		const pagePwd = process.env.SOLMAN_PASS;
-
+async function assignTransportRequest(options, pageUser, pagePwd) {
 		const encUserPwd = Buffer.from(`${pageUser}:${pagePwd}`).toString('base64');
 
 		// Do we have a work item GUID?
 		const workItemGuid = await getWorkItemGuid(options, encUserPwd);
 		console.error(`Info: opening work item ${workItemGuid}`);
+
+		const transportRequest = getTransportRequest(options['transport-request']);
+		console.error(`Info: transport request ${transportRequest}`);
 		//return 1;
 
 		const browser = await puppeteer.launch({
@@ -96,6 +111,9 @@ async function assignTransportRequest(options) {
 		await page.setExtraHTTPHeaders({
 				'Authorization': `Basic ${encUserPwd}`
 		});
+
+		console.error(`Info: opening crm_ui_start`);
+
 		await page.goto(`${options['crm-ui-start']}?saml2=disabled&CRM-OBJECT-TYPE=AIC_OB_CMNC&CRM-OBJECT-ACTION=B&CRM-OBJECT-VALUE=${workItemGuid}&saprole=%2fSALM%2fDEVEL`,
 				{timeout: 120000, waitUntil: 'load'}
 		);
@@ -145,9 +163,12 @@ async function assignTransportRequest(options) {
 		console.error('Info: editing work item');
 
 		try {
+				// document.evaluate("//div[@id='msgContainer']//span[text()='Transaction 3200000665 saved']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE)
 				const btnTransportManagement = await frame.waitForXPath("//td[text()='Transport Management']");
 				await btnTransportManagement.click();
 				const btnMore = await frame.waitForXPath("//div[@id='thtmlbOverviewPageBox']//b[text()='More']");
+				// kajanl: Shameful, but maybe this helps:
+				await frame.waitForTimeout(500);
 				await btnMore.click();
 
 				console.error(`Info: waiting for 'Assign Transport Request'`);
@@ -188,13 +209,13 @@ async function assignTransportRequest(options) {
 						});
 						// C.f. frame.type()
 						//debugger;
-						//await popupFrame.type("[id='C25_W87_V88_V89_searchquerynode_parameters[2].VALUE1']", options['transport-request']);
+						//await popupFrame.type("[id='C25_W87_V88_V89_searchquerynode_parameters[2].VALUE1']", transportRequest);
 						// kajanl: Attention: /soon/ after clicking the CP item, its value is cleared. I found no good way to tell when this is, hence the (shameful) waitForTimeout().
 						// 	.type() is not much better: it's sensitive to mouse moves, when it is not run headless.
 						await popupFrame.waitForTimeout(500);
 						await popupFrame.evaluate((transportRequest) => {
 								document.getElementById("C25_W87_V88_V89_searchquerynode_parameters[2].VALUE1").value = transportRequest;
-						}, options['transport-request']);
+						}, transportRequest);
 						await popupFrame.click("[id='C25_W87_V88_V89_SEARCH_BTN']");
 
 						console.error(`Info: searching for transport request`);
@@ -249,26 +270,34 @@ async function assignTransportRequest(options) {
 				return 1;
 		}
 
-		await frame.click("[id='C13_W39_V41_SAVE']");
-		await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
-		await frame.waitForSelector("[id='CRMMessageLine1']");
-		await frame.waitForFunction(() => {
-				return /^Transaction.*saved$/.test(document.querySelectorAll("[id='CRMMessageLine1'] span")[2].textContent);
-		}, {polling: 333});
+		try {
+				await frame.click("[id='C13_W39_V41_SAVE']");
+				await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
+				await frame.waitForSelector("[id='CRMMessageLine1']");
+				// There may be multiple messages, e.g. 'There is no valid business partner assigned to your user'
+				await frame.waitForXPath(`//div[@id='msgContainer']//span[text()='Transaction ${options['work-item-number']} saved']`);
 
-		console.error(`Info: saved work item`);
+				console.error(`Info: saved work item`);
 
-		await frame.click("[id='C13_W39_V41_DISPLAY']");
-		await frame.waitForSelector("[id='C13_W39_V41_DISPLAY'].th-bt-text-dis");
+				await frame.click("[id='C13_W39_V41_DISPLAY']");
+				await frame.waitForSelector("[id='C13_W39_V41_DISPLAY'].th-bt-text-dis");
 
-		console.error(`Info: switched to 'Display'`);
+				console.error(`Info: switched to 'Display'`);
 
-		await logoffBrowserClose(browser, page);
-		return 0;
+				await logoffBrowserClose(browser, page);
+				return 0;
+		} catch (err) {
+				await page.screenshot({path: './errorAfterSave.png'});
+				throw err;
+		}
 }
 
 (async () => {
 		let retCode = 0;
+		//
+		// Env
+		const pageUser = process.env.SOLMAN_USER;
+		const pagePwd = process.env.SOLMAN_PASS;
 
 		// Command line
 		const options = commandLineArgs(optionDefinitions);
@@ -286,12 +315,17 @@ async function assignTransportRequest(options) {
 
 						console.error("Error: 'transport-request' is not given, use --transport-request option.");
 						printHelp = true;
-				} else if (!options["work-item-guid"]) {
-
-						console.log("Info: 'work-item-guid' is not given, it will be deduced from the work item number.");
 				} else if (!options["work-item-number"]) {
 
 						console.error("Error: 'work-item-number' is not given, use --work-item-number option.");
+						printHelp = true;
+				} else if (!pageUser) {
+
+						console.error("Error: 'SOLMAN_USER' is not defined in the environment.");
+						printHelp = true;
+				} else if (!pagePwd) {
+
+						console.error("Error: 'SOLMAN_PASS' is not defined in the environment.");
 						printHelp = true;
 				}
 		}
@@ -302,7 +336,11 @@ async function assignTransportRequest(options) {
 				if (!options.help) { retCode = 1; }
 		} else {
 
-				retCode = await assignTransportRequest(options);
+				if (!options["work-item-guid"]) {
+						console.log("Info: 'work-item-guid' is not given, it will be deduced from the work item number.");
+				}
+
+				retCode = await assignTransportRequest(options, pageUser, pagePwd);
 		}
 		process.exitCode = retCode;
 		return retCode;
