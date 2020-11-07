@@ -4,7 +4,14 @@ const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
 
 const axios = require('axios');
+const fs = require('fs');
 const https = require('https');
+// kajanl:
+//	https://github.com/puppeteer/puppeteer/blob/main/docs/troubleshooting.md#running-on-alpine
+// 	puppeteer@chrome-86 (5.3.1) to match chromium=86.0.4240.111-r0 of Docker image node:12-alpine3.12
+// 	Build Docker image with
+// 		ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+//			PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 const puppeteer = require('puppeteer');
 const sprintf = require('sprintf-js').sprintf;
 
@@ -48,7 +55,7 @@ async function getWorkItemGuid(options, encUserPwd) {
 						response = await axios.get(odataUrl, {
 								headers: {'Authorization': `Basic ${encUserPwd}`},
 								httpsAgent: new https.Agent({
-										rejectUnauthorized: false
+										ca: fs.readFileSync('/etc/ssl/certs/ca-certificates.crt')
 								})
 						});
 						debugger;
@@ -99,7 +106,10 @@ async function assignTransportRequest(options, pageUser, pagePwd) {
 		//return 1;
 
 		const browser = await puppeteer.launch({
-				//args: ['--no-sandbox', '--disable-setuid-sandbox'],
+				args: [
+						'--no-sandbox', //'--disable-setuid-sandbox',
+						'--disable-dev-shm-usage'
+				],
 				defaultViewport: {
 						width: 1280,
 						height: 768
@@ -153,13 +163,16 @@ async function assignTransportRequest(options, pageUser, pagePwd) {
 				await frame.waitForSelector("[id='C13_W39_V41_EDIT'].th-bt-icontext-dis", {timeout: 5000});
 		} catch(err) {
 				// "Transaction 3200000665 is being processed by user KAJANL"
-				const message = await frame.evaluate(() => {
-						return document.querySelectorAll("[id='CRMMessageLine1'] span")[2].textContent;
+				const messages = await frame.evaluate(() => {
+						// ["2 Messages ", "", " ", "There is no valid business partner assigned to your user", "", " ", "Transaction 3200000665 is being processed by user 9ASPTMS"]
+						return [...document.querySelectorAll("[id='msgContainer'] span")].map((item) => {return item.textContent});
 				});
+				const lockMessages = messages.filter((item) => {
+						return /^Transaction.*is being processed by user/.test(item); });
 
-				if(/^Transaction.*is being processed by user/.test(message)) {
+				if(lockMessages.length) {
 
-						console.error(`Error: ${message}`);
+						console.error(`Error: ${lockMessages}`);
 						await logoffBrowserClose(browser, page);
 						return 2; // WI is locked
 				} else {
@@ -256,6 +269,7 @@ async function assignTransportRequest(options, pageUser, pagePwd) {
 						debugger;
 
 						console.error(`Info: error occurred on popup, closing popup`);
+						await popupPage.screenshot({path: './errorOnPopup.png'});
 						await popupPage.close({runBeforeUnload: true});
 						await frame.waitForSelector("[id='submitInProgress']", {hidden: true});
 						console.error(`Info: error occurred on popup, popup is now closed`);
