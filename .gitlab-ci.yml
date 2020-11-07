@@ -5,6 +5,9 @@
     - docker
     - linux
 
+variables:
+  PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
+
 default:
 # https://docs.gitlab.com/ee/ci/caching/index.html
 #  cache:
