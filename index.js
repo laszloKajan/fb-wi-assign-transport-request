@@ -17,10 +17,11 @@ const sprintf = require('sprintf-js').sprintf;
 
 // Command line
 const optionDefinitions = [
-		{ name: 'crm-ui-start', type: String, defaultValue: 'https://bs1web.sap.roche.com/sap/bc/bsp/sap/crm_ui_start/default.htm', description: "URL of crm_ui_start." },
+		// https://bs1web.sap.roche.com:443/sap/bc/ags_workcenter/ags_crm_docln?objectid=3200000665&proctype=S1MJ&saml2=disabled&saprole=%2fSALM%2fDEVEL
 		{ name: 'no-headless', type: Boolean, defaultValue: false, description: "Don't run headless - for testing." },
 		{ name: 'help', alias: 'h', type: Boolean, description: "Print this usage guide." },
 		{ name: 'slowmo', type: Number, defaultValue: 0, description: "Slow execution down - for testing, e.g. 250, default 0." },
+		{ name: 'solman-host', type: String, defaultValue: 'bs1web.sap.roche.com', description: "Solution Manager host." },
 		{ name: 'transport-request', alias: 't', type: String, description: "Transport request, e.g. 'C0000000000000004037' or '4037'." },
 		//{ name: 'verbose', alias: 'v', type: Boolean, description: "Be verbose on the console." }
 		{ name: 'work-item-guid', alias: 'w', type: String, description: "Optional work item GUID, with or without dashes, e.g. '005056BD-A0FF-1EDB-83F6-92FDA092DD16'." },
@@ -43,12 +44,7 @@ const optionUsage = commandLineUsage([
 async function getWorkItemGuid(options, encUserPwd) {
 		let workItemGuid = options['work-item-guid'];
 		if(!workItemGuid) {
-				const matches = options['crm-ui-start'].match('^https://[^/]+');
-				if(!Array.isArray(matches)) {
-
-						throw new Error(`can't find base url in ${options['crm-ui-start']} for OData call`);
-				}
-				const odataUrl = `${matches[0]}/sap/opu/odata/SALM/MC_SRV/DocTypeSet('S1CG%3BS1MJ')/DocWorkItems?sap-language=en&$filter=Id%20eq%20%27${options['work-item-number']}%27&$select=Guid,Id&$format=json`;
+				const odataUrl = `https://${options['solman-host']}/sap/opu/odata/SALM/MC_SRV/DocTypeSet('S1CG%3BS1MJ')/DocWorkItems?sap-language=en&$filter=Id%20eq%20%27${options['work-item-number']}%27&$select=Guid,Id&$format=json`;
 				// With SALM/MC_SRV, we get a 500 'Field symbol has not been assigned yet' when there is no hit.
 				let response;
 				try {
@@ -131,7 +127,9 @@ async function assignTransportRequest(options, pageUser, pagePwd) {
 
 		console.error(`Info: opening crm_ui_start`);
 
-		await page.goto(`${options['crm-ui-start']}?saml2=disabled&CRM-OBJECT-TYPE=AIC_OB_CMNC&CRM-OBJECT-ACTION=B&CRM-OBJECT-VALUE=${workItemGuid}&saprole=%2fSALM%2fDEVEL`,
+		const crmUiStart = `https://${options['solman-host']}/sap/bc/bsp/sap/crm_ui_start/default.htm`;
+
+		await page.goto(`${crmUiStart}?saml2=disabled&CRM-OBJECT-TYPE=AIC_OB_CMNC&CRM-OBJECT-ACTION=B&CRM-OBJECT-VALUE=${workItemGuid}&saprole=%2fSALM%2fDEVEL`,
 				{timeout: 120000, waitUntil: 'load'}
 		);
 
@@ -333,9 +331,9 @@ async function assignTransportRequest(options, pageUser, pagePwd) {
 		if (options.help) {
 				printHelp = true;
 		} else {
-				if (!options['crm-ui-start']) {
+				if (!options['solman-host']) {
 
-						console.error("Error: 'crm-ui-start' is not given, use --crm-ui-start option.");
+						console.error("Error: 'solman-host' is not given, use --solman-host option.");
 						printHelp = true;
 				} else if (!options["transport-request"]) {
 
