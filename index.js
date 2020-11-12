@@ -17,7 +17,7 @@ const sprintf = require('sprintf-js').sprintf;
 
 // Command line
 const optionDefinitions = [
-		// https://bs1web.sap.roche.com:443/sap/bc/ags_workcenter/ags_crm_docln?objectid=3200000665&proctype=S1MJ&saml2=disabled&saprole=%2fSALM%2fDEVEL
+		// https://***.com:443/sap/bc/ags_workcenter/ags_crm_docln?objectid=3200000665&proctype=S1MJ&saml2=disabled&saprole=%2fSALM%2fDEVEL
 		{ name: 'no-headless', type: Boolean, defaultValue: false, description: "Don't run headless - for testing." },
 		{ name: 'help', alias: 'h', type: Boolean, description: "Print this usage guide." },
 		{ name: 'slowmo', type: Number, defaultValue: 0, description: "Slow execution down - for testing, e.g. 250, default 0." },
@@ -207,7 +207,7 @@ async function assignTransportRequest(options, pageUser, pagePwd) {
 						node.parentElement.parentElement.parentElement.dispatchEvent(eMu);
 				});
 				await frame.waitForSelector("[id='submitInProgress']");
-				//"https://bs1web.sap.roche.com/sap(====)/bc/bsp/sap/bsp_wd_base/popup_buffered_frame_cached.htm?sap-client=010&sap-language=EN&sap-domainRelax=min"
+				//"https://***.com/sap(====)/bc/bsp/sap/bsp_wd_base/popup_buffered_frame_cached.htm?sap-client=010&sap-language=EN&sap-domainRelax=min"
 				const popupWindowTarget = await browser.waitForTarget(target => /bsp_wd_base\/popup_buffered_frame_cached/.test(target.url()));
 
 				const popupPage = await popupWindowTarget.page();
